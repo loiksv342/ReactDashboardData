@@ -7,26 +7,26 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
-    allow_credentials=True,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
-@app.post("/upload")
-async def upload_csv(file: UploadFile = File(...)):
+
+@app.post("/chart-data")
+async def chart(file: UploadFile = File(...)):
     if file.content_type != "text/csv":
-        raise HTTPException(status_code=400, detail="Invalid file type")
+        raise HTTPException(status_code=400, detail="Only CSV allowed")
 
     contents = await file.read()
-    csv_string = contents.decode("utf-8")
+    df = pd.read_csv(StringIO(contents.decode("utf-8")))
 
-    df = pd.read_csv(StringIO(csv_string))
+    if df.shape[1] < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 columns")
+
+    x = df.iloc[:, 0].astype(str)
+    y = df.iloc[:, 1]
 
     return {
-        "rows": len(df),
-        "columns": list(df.columns),
-        "preview": df.head().to_dict(orient="records"),
+        "labels": x.tolist(),
+        "values": y.tolist()
     }
